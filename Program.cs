@@ -6,7 +6,7 @@ using System.Xml.Linq;
 
 // See https://aka.ms/new-console-template for more information
 
-void Process(string input, string output)
+void Process(string input, string output, bool cleanup = false)
 {
     //Load and parse
     var content = File.ReadAllText(input);
@@ -18,6 +18,12 @@ void Process(string input, string output)
     foreach (var descendant in doc.Descendants().Where(x => x.HasAttributes))
     {
         var attributes = descendant.Attributes().ToList();
+        if (cleanup)
+        {
+            var id = attributes.FirstOrDefault(a => a.Name.LocalName == "id");
+            if (id != null) attributes.Remove(id);
+        }
+
         attributes.Sort(comparer);
         descendant.ReplaceAttributes(attributes.ToArray());
     }
@@ -48,7 +54,6 @@ void Process(string input, string output)
     doc.Save(output);
 }
 
-
 string errorInfo = "initializing";
 
 try
@@ -56,6 +61,7 @@ try
     var input = args.FirstOrDefault(a => !a.StartsWith("-"));
     var recurse = args.Any(a => a == "-r" || a == "--recurse");
     var tolerant = args.Any(a => a == "-t" || a == "--tolerant");
+    var cleanup = args.Any(a => a == "-id" || a == "--remove-id");
 
     //assume input if there is only one argument
     if (input == null && args.Length == 1)
@@ -68,6 +74,7 @@ try
 
         Console.WriteLine(" -r, --recurse: Recursively search subdirectories");
         Console.WriteLine(" -t, --tolerant: Fault tolerant mode");
+        Console.WriteLine(" -id, --remove-id: Remove all \"id\" attributes.");
 
         return 1;
     }
@@ -88,7 +95,7 @@ try
         {
             Console.WriteLine(file);
             errorInfo = $"processing {file}";
-            Process(file, file);
+            Process(file, file, cleanup);
         }
         catch (Exception e)
         {
