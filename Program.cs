@@ -6,18 +6,8 @@ using System.Xml.Linq;
 
 // See https://aka.ms/new-console-template for more information
 
-try
+void Process(string input, string output)
 {
-    if(args.Length < 2)
-    {
-        Console.WriteLine("sortmyxml 2.0 - Sergoifies xml files alphabetically");
-        Console.WriteLine("Usage: sortmyxml[.exe] <input file> <output file>");
-        return 1;
-    }
-
-    var input = args[0];
-    var output = args[1];
-
     //Load and parse
     var content = File.ReadAllText(input);
     var doc = XDocument.Parse(content);
@@ -56,10 +46,62 @@ try
 
     //Save
     doc.Save(output);
+}
+
+
+string errorInfo = "initializing";
+
+try
+{
+    var input = args.FirstOrDefault(a => !a.StartsWith("-"));
+    var recurse = args.Any(a => a == "-r" || a == "--recurse");
+    var tolerant = args.Any(a => a == "-t" || a == "--tolerant");
+
+    //assume input if there is only one argument
+    if (input == null && args.Length == 1)
+        input = args[0];
+
+    if (input == null)
+    {
+        Console.WriteLine("xmlsort 2.0 - Sergoifies xml files alphabetically");
+        Console.WriteLine("Usage: xmlsort[.exe] <input> [-r] [-t]");
+
+        Console.WriteLine(" -r, --recurse: Recursively search subdirectories");
+        Console.WriteLine(" -t, --tolerant: Fault tolerant mode");
+
+        return 1;
+    }
+
+    var path = Path.GetDirectoryName(input);
+
+    if (string.IsNullOrEmpty(path))
+        path = Directory.GetCurrentDirectory();
+
+    string[]? files = Directory.GetFiles(
+        path,
+        Path.GetFileName(input),
+        recurse ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
+
+    foreach (var file in files)
+    {
+        try
+        {
+            Console.WriteLine(file);
+            errorInfo = $"processing {file}";
+            Process(file, file);
+        }
+        catch (Exception e)
+        {
+            if (!tolerant)
+                throw;
+            Console.WriteLine($"Errored while {errorInfo} ({e.GetType()}): {e.Message}");
+        }
+    }
 
     return 0;
-} catch(Exception e)
+}
+catch (Exception e)
 {
-    Console.WriteLine($"Errored ({e.GetType()}): {e.Message}");
+    Console.WriteLine($"Errored while {errorInfo} ({e.GetType()}): {e.Message}");
     return 1;
 }
